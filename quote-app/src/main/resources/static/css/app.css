@@ -1,0 +1,181 @@
+/* One stylesheet: a neutral palette with one accent, a system font stack and a 4px spacing scale. */
+
+:root {
+  --color-bg: #f4f5f7;
+  --color-surface: #ffffff;
+  --color-text: #1b1f24;
+  --color-muted: #555e69;          /* 6.4:1 on white */
+  --color-border: #c9cfd6;
+  --color-accent: #0b5cad;         /* 6.6:1 on white */
+  --color-accent-hover: #084887;
+  --color-on-accent: #ffffff;
+  --color-error: #b3261e;          /* 6.0:1 on white */
+  --color-error-bg: #fdecea;
+  --color-success-bg: #eaf4ec;
+  --color-focus: #ffbf47;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --radius: 6px;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #121417;
+    --color-surface: #1c1f24;
+    --color-text: #e8eaed;
+    --color-muted: #a9b1bb;
+    --color-border: #3a4049;
+    --color-accent: #7cb4f0;
+    --color-accent-hover: #a3cbf5;
+    --color-on-accent: #0b1a2b;
+    --color-error: #f2b8b5;
+    --color-error-bg: #3b1f1d;
+    --color-success-bg: #1d3323;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: 16px/1.5 var(--font);
+}
+
+.page {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-4);
+}
+
+h1 { margin: 0 0 var(--space-2); font-size: 1.75rem; line-height: 1.2; }
+h2 { margin: 0 0 var(--space-3); font-size: 1.25rem; }
+.lede { margin: 0 0 var(--space-6); color: var(--color-muted); }
+.mono { font-family: var(--font-mono); overflow-wrap: anywhere; }
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-6);
+}
+
+/* ---- Form ---- */
+
+.field { margin: 0 0 var(--space-6); padding: 0; border: 0; min-width: 0; }
+.field label, .field legend { display: block; font-weight: 600; padding: 0; }
+.hint { margin: var(--space-1) 0 var(--space-2); color: var(--color-muted); font-size: 0.9375rem; }
+.field-error { margin: var(--space-1) 0 var(--space-2); color: var(--color-error); font-weight: 600; }
+.field--invalid { border-left: 4px solid var(--color-error); padding-left: var(--space-3); }
+
+input[type="text"] {
+  display: block;
+  width: 100%;
+  max-width: 20rem;
+  padding: var(--space-2) var(--space-3);
+  font: inherit;
+  color: inherit;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius);
+}
+input[aria-invalid="true"] { border-color: var(--color-error); }
+
+.radios { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
+.radio {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-weight: 400;
+}
+.radio:has(input:checked) { border-color: var(--color-accent); }
+.radio input { margin: 0; width: 1.125rem; height: 1.125rem; accent-color: var(--color-accent); }
+
+/* ---- Buttons and the loading state ---- */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-6);
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-on-accent);
+  background: var(--color-accent);
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.button:hover { background: var(--color-accent-hover); border-color: var(--color-accent-hover); }
+.button:disabled { cursor: progress; opacity: 0.75; }
+.button-secondary { color: var(--color-accent); background: transparent; }
+.button-secondary:hover { color: var(--color-on-accent); }
+
+:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+[tabindex="-1"]:focus { outline: none; }
+
+/* htmx adds .htmx-request to the hx-indicator element (#quote-panel) while a request is in flight.
+   includeIndicatorStyles is off for the CSP, so these rules replace htmx's own. */
+.button-busy { display: none; }
+.htmx-request .quote-form .button-label { display: none; }
+.htmx-request .quote-form .button-busy { display: inline-flex; align-items: center; gap: var(--space-2); }
+
+.spinner {
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; border-right-color: currentColor; opacity: 0.6; }
+}
+
+/* ---- Outcome ---- */
+
+.outcome:not(:empty) { margin-top: var(--space-6); }
+
+.result {
+  padding: var(--space-4);
+  background: var(--color-success-bg);
+  border-radius: var(--radius);
+}
+.result-total { margin: 0 0 var(--space-4); }
+.result-total-label { display: block; color: var(--color-muted); }
+.result-total-value { font-size: 2rem; font-weight: 700; line-height: 1.2; }
+.result-details { margin: 0; display: grid; gap: var(--space-2); }
+.result-details div { display: grid; grid-template-columns: minmax(7rem, 1fr) 2fr; gap: var(--space-3); }
+.result-details dt { color: var(--color-muted); }
+.result-details dd { margin: 0; }
+
+.alert {
+  padding: var(--space-4);
+  color: var(--color-text);
+  background: var(--color-error-bg);
+  border-left: 4px solid var(--color-error);
+  border-radius: var(--radius);
+}
+.alert p { margin: 0 0 var(--space-2); }
+.alert .button { margin-top: var(--space-2); }
+
+@media (max-width: 30rem) {
+  .page { padding: var(--space-6) var(--space-4); }
+  .card { padding: var(--space-4); }
+  .result-details div { grid-template-columns: 1fr; gap: 0; }
+}

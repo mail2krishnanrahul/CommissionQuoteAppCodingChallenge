@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en-AU" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!--
+    htmx 2 doesn't swap 4xx/5xx responses by default. The server designs every error state, so swap 422 (validation)
+    and 500/502/503/504 (upstream failures); anything else isn't swapped and app.js shows a generic message.
+    timeout (10s) is above the server's worst case (~4.3s), so the server always answers first.
+    allowEval and includeIndicatorStyles are off to stay within the Content-Security-Policy.
+  -->
+  <meta name="htmx-config" content='{
+    "timeout": 10000,
+    "allowEval": false,
+    "includeIndicatorStyles": false,
+    "responseHandling": [
+      {"code": "204", "swap": false},
+      {"code": "2..", "swap": true},
+      {"code": "422", "swap": true},
+      {"code": "50[0234]", "swap": true},
+      {"code": "...", "swap": false, "error": true}
+    ]
+  }'>
+  <title th:text="#{page.title}">Commission quote</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+  <script th:src="@{/webjars/htmx.org/dist/htmx.min.js}" defer></script>
+  <script th:src="@{/js/app.js}" defer></script>
+</head>
+<body>
+<main class="page">
+  <h1 th:text="#{page.heading}">Commission quote</h1>
+  <p class="lede" th:text="#{page.lede}">Enter the loan details to get a commission quote from the vendor.</p>
+
+  <!-- quotePanel: the form plus the outcome. Every POST /quotes from htmx returns exactly this, swapped as a whole. -->
+  <div id="quote-panel" class="card" th:fragment="quotePanel">
+    <form id="quote-form" class="quote-form" method="post" th:action="@{/quotes}" novalidate
+          hx-post="/quotes" hx-target="#quote-panel" hx-swap="outerHTML"
+          hx-indicator="#quote-panel" hx-disabled-elt="find button[type=submit]">
+      <input type="hidden" name="idempotencyKey" th:value="${form.idempotencyKey}">
+
+      <div class="field" th:classappend="${errors['loanAmount'] != null} ? 'field--invalid'">
+        <label for="loanAmount" th:text="#{form.loanAmount.label}">Loan amount</label>
+        <p id="loanAmount-hint" class="hint" th:text="#{form.loanAmount.hint}">Between $1,000 and $5,000,000</p>
+        <p id="loanAmount-error" class="field-error" th:if="${errors['loanAmount'] != null}"
+           th:text="${errors['loanAmount']}">Error</p>
+        <input id="loanAmount" name="loanAmount" type="text" inputmode="decimal" autocomplete="off"
+               th:value="${form.loanAmount}"
+               th:attr="aria-describedby=${errors['loanAmount'] != null} ? 'loanAmount-hint loanAmount-error' : 'loanAmount-hint',
+                        aria-invalid=${errors['loanAmount'] != null} ? 'true' : null"
+               th:autofocus="${firstInvalidField == 'loanAmount'}">
+      </div>
+
+      <div class="field" th:classappend="${errors['loanTermInMonths'] != null} ? 'field--invalid'">
+        <label for="loanTermInMonths" th:text="#{form.loanTerm.label}">Loan term (months)</label>
+        <p id="loanTermInMonths-hint" class="hint" th:text="#{form.loanTerm.hint}">Whole months, 12 to 360</p>
+        <p id="loanTermInMonths-error" class="field-error" th:if="${errors['loanTermInMonths'] != null}"
+           th:text="${errors['loanTermInMonths']}">Error</p>
+        <input id="loanTermInMonths" name="loanTermInMonths" type="text" inputmode="numeric" autocomplete="off"
+               th:value="${form.loanTermInMonths}"
+               th:attr="aria-describedby=${errors['loanTermInMonths'] != null} ? 'loanTermInMonths-hint loanTermInMonths-error' : 'loanTermInMonths-hint',
+                        aria-invalid=${errors['loanTermInMonths'] != null} ? 'true' : null"
+               th:autofocus="${firstInvalidField == 'loanTermInMonths'}">
+      </div>
+
+      <fieldset class="field" th:classappend="${errors['riskBand'] != null} ? 'field--invalid'"
+                th:attr="aria-describedby=${errors['riskBand'] != null} ? 'riskBand-error' : null">
+        <legend th:text="#{form.riskBand.legend}">Risk band</legend>
+        <p id="riskBand-error" class="field-error" th:if="${errors['riskBand'] != null}"
+           th:text="${errors['riskBand']}">Error</p>
+        <div class="radios">
+          <label class="radio" th:each="band, stat : ${riskBands}" th:for="|riskBand-${band.name()}|">
+            <input type="radio" name="riskBand" th:id="|riskBand-${band.name()}|" th:value="${band.name()}"
+                   th:checked="${form.riskBand == band.name()}"
+                   th:attr="aria-invalid=${errors['riskBand'] != null} ? 'true' : null"
+                   th:autofocus="${firstInvalidField == 'riskBand' and stat.first}">
+            <span th:text="${band.label()}">Low</span>
+          </label>
+        </div>
+      </fieldset>
+
+      <button type="submit" class="button">
+        <span class="button-label" th:text="#{form.submit}">Generate Quote</span>
+        <span class="button-busy"><span class="spinner" aria-hidden="true"></span><span th:text="#{form.submit.busy}">Generating…</span></span>
+      </button>
+    </form>
+
+    <div id="quote-outcome" class="outcome">
+      <section class="result" th:if="${result != null}" aria-labelledby="result-heading">
+        <h2 id="result-heading" tabindex="-1" autofocus th:text="#{result.heading}">Your quote</h2>
+        <p class="result-total">
+          <span class="result-total-label" th:text="#{result.totalCommission}">Total commission</span>
+          <span class="result-total-value" th:text="${result.totalCommission}">$3,000.00</span>
+        </p>
+        <dl class="result-details">
+          <div><dt th:text="#{result.commissionRate}">Commission rate</dt><dd th:text="${result.commissionRate}">0.60%</dd></div>
+          <div><dt th:text="#{result.quoteId}">Quote ID</dt><dd class="mono" th:text="${result.quoteId}">id</dd></div>
+          <div><dt th:text="#{result.loanAmount}">Loan amount</dt><dd th:text="${result.loanAmount}">$500,000.00</dd></div>
+          <div><dt th:text="#{result.loanTerm}">Loan term</dt><dd th:text="${result.loanTerm}">360 months</dd></div>
+          <div><dt th:text="#{result.riskBand}">Risk band</dt><dd th:text="${result.riskBand}">Medium</dd></div>
+          <div><dt th:text="#{result.generatedAt}">Generated at</dt><dd th:text="${result.generatedAt}">time</dd></div>
+        </dl>
+      </section>
+
+      <div class="alert" th:if="${failure != null}" role="alert" tabindex="-1" autofocus>
+        <p class="alert-message" th:text="${failure.message}">Message</p>
+        <p class="alert-reference"><span th:text="#{failure.reference}">Reference:</span>
+          <span class="mono" th:text="${reference}">reference</span></p>
+        <button type="submit" form="quote-form" class="button button-secondary" th:if="${failure.retryable}"
+                th:text="#{failure.tryAgain}">Try again</button>
+      </div>
+    </div>
+  </div>
+</main>
+</body>
+</html>
