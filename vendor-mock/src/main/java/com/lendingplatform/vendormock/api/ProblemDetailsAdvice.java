@@ -1,5 +1,6 @@
 package com.lendingplatform.vendormock.api;
 
+import com.lendingplatform.vendormock.idempotency.IdempotencyKeyReusedException;
 import com.lendingplatform.vendormock.web.CorrelationIdFilter;
 import java.util.Comparator;
 import java.util.List;
@@ -69,6 +70,13 @@ public class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
             problem.setProperty(ERRORS, List.of(new FieldProblem(field, "has the wrong type or is not allowed")));
         }
         return handleExceptionInternal(ex, problem, headers, HttpStatus.BAD_REQUEST, request);
+    }
+
+    @ExceptionHandler(IdempotencyKeyReusedException.class)
+    public ResponseEntity<Object> handleIdempotencyKeyReused(IdempotencyKeyReusedException ex, WebRequest request) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage());
+        problem.setProperty(CODE, "IDEMPOTENCY_KEY_REUSED");
+        return handleExceptionInternal(ex, problem, new HttpHeaders(), HttpStatus.UNPROCESSABLE_CONTENT, request);
     }
 
     @ExceptionHandler(Exception.class)

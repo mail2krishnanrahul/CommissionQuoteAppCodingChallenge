@@ -27,4 +27,9 @@ public record QuoteRequest(
 
         @NotNull(message = "is required")
         RiskBand riskBand) {
+
+    /** Identifies the payload by value, so 500000 and 500000.00 count as the same request for idempotency. */
+    public String fingerprint() {
+        return loanAmount.stripTrailingZeros().toPlainString() + "|" + loanTermInMonths + "|" + riskBand;
+    }
 }
