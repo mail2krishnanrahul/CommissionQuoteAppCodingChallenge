@@ -11,7 +11,7 @@
     </parent>
 
     <artifactId>vendor-mock</artifactId>
-    <name>Vendor mock — Commission Quote API</name>
+    <name>Vendor mock - Commission Quote API</name>
 
     <dependencies>
         <dependency>

@@ -11,7 +11,7 @@
     </parent>
 
     <artifactId>quote-app</artifactId>
-    <name>Quote App — staff web application</name>
+    <name>Quote App - staff web application</name>
 
     <dependencies>
         <dependency>
