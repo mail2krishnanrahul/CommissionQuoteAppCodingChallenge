@@ -2,11 +2,11 @@
 
 | | |
 |---|---|
-| **Status** | Design baseline. Updated to as-built at the end of Phase 5 (see §17 Decision log) |
+| **Status** | As built, 2026-10-21 (end of Phase 5). Changes from the design baseline are in §17 Decision log |
 | **Owner** | Rahul |
 | **Contract** | [`contracts/commission-quote-api.yaml`](../contracts/commission-quote-api.yaml) (OpenAPI 3.1) |
 | **Plan** | [`docs/PLAN.md`](PLAN.md) |
-| **Stack** | Java 21 · Spring Boot 4.x · Thymeleaf · htmx 2.0 · Maven · JUnit 5 · WireMock |
+| **Stack** | Java 21 · Spring Boot 4.1.1 (Spring Framework 7, Jackson 3) · Thymeleaf · htmx 2.0.11 · Maven · JUnit · WireMock 3.13 |
 
 ---
 
@@ -94,7 +94,8 @@ Dependencies point inward. `web` and `vendor` depend on `quote`; `quote` depends
 
 ```mermaid
 flowchart LR
-    req([Request]) --> CID[CorrelationIdFilter] --> AK[ApiKeyFilter] --> CH[ChaosFilter] --> IDEM[Idempotency check] --> CTRL[CommissionQuoteController] --> CALC[CommissionCalculator]
+    req([Request]) --> CID[CorrelationIdFilter] --> AK[ApiKeyFilter] --> CH[ChaosFilter] --> CTRL[CommissionQuoteController] --> IDEM[IdempotencyStore<br/>replay or create] --> CALC[CommissionCalculator]
+    IDEM -- same key, different body --> R422[422 Problem]
     AK -- missing / wrong key --> R401[401 Problem]
     CH -- injected failure --> R5xx[500 / 503 Problem]
     CTRL -- invalid body --> R400[400 Problem]
@@ -309,7 +310,7 @@ Every server-rendered error shows **"Reference: {correlationId}"**, which suppor
 
 **Why retrying a POST is safe here:** if attempt 1 timed out after the vendor had already created a quote, attempt 2 carries the same `Idempotency-Key`, and the vendor returns the stored quote instead of creating a second one. The same mechanism covers double-clicks and "Try again".
 
-**Expected failures with default chaos:** each attempt fails with probability ≈ 0.2 + 0.8 × 0.05 = 0.24, so a user sees an error after two attempts about 0.24² ≈ **6%** of the time — often enough to exercise the error UI, rare enough to use the app. Set `MOCK_CHAOS_FAILURE_RATE=1` to force failures in a demo.
+**Expected failures with default chaos:** the failure and slow outcomes are disjoint bands of one random roll, so each attempt goes wrong with probability 0.2 + 0.05 = 0.25, and a user sees an error after two attempts about 0.25² ≈ **6%** of the time — often enough to exercise the error UI, rare enough to use the app. To force failures in a demo, set `MOCK_CHAOS_FAILURE_RATE=1 MOCK_CHAOS_SLOW_RATE=0` (the two rates must sum to at most 1).
 
 **Deliberately not yet:** circuit breaker, bulkhead, rate limiting, and handling `429 Retry-After`. They are worth adding once the real vendor's SLAs and limits are known (§15). Adding them now would mean tuning against made-up numbers.
 
@@ -474,19 +475,19 @@ Both modules validate their properties at startup (rates in range, min ≤ max, 
 
 ---
 
-## 14. Code tour (planned paths — corrected to as-built in Phase 5)
+## 14. Code tour
 
-Follow one request:
+Follow one request. `QA` = `quote-app/src/main/java/com/lendingplatform/quoteapp`, `VM` = `vendor-mock/src/main/java/com/lendingplatform/vendormock`.
 
-1. `quote-app/.../web/QuoteController.java` — `GET /` and `POST /quotes`; fragment or full page.
-2. `quote-app/.../web/LoanDetailsParser.java` — raw strings → `LoanDetails` or field errors (§6.1).
-3. `quote-app/.../quote/QuoteService.java` — the application seam.
-4. `quote-app/.../vendor/HttpCommissionQuoteGateway.java` — headers, timeouts, `RetryTemplate`, error classification, response checks.
-5. `quote-app/.../quote/QuoteFailure.java` — the sealed taxonomy.
-6. `quote-app/.../web/QuoteFailureHandler.java` — failure → status, message, retry flag.
-7. `quote-app/src/main/resources/templates/index.html` — the page and the `quotePanel` fragment.
-8. `vendor-mock/.../security/ApiKeyFilter.java` → `chaos/ChaosFilter.java` → `api/CommissionQuoteController.java` → `pricing/CommissionCalculator.java`.
-9. Tests mirror each of the above.
+1. `QA/web/QuoteController.java` — `GET /` and `POST /quotes`; fragment or full page; idempotency key lifecycle.
+2. `QA/web/LoanDetailsParser.java` — raw strings (`QuoteForm`) → `LoanDetails` or field errors (§6.1).
+3. `QA/quote/QuoteService.java` — the application seam.
+4. `QA/vendor/HttpCommissionQuoteGateway.java` — headers, `RetryTemplate`, error classification, response checks, logging. Client timeouts are in `QA/vendor/VendorClientConfig.java`.
+5. `QA/quote/QuoteFailure.java` — the sealed taxonomy; the five subtypes are nested in this one file.
+6. `QA/web/QuoteFailureHandler.java` — failure → status, message, retry flag. `QA/web/QuoteResultView.java` formats a success.
+7. `quote-app/src/main/resources/templates/index.html` — the page and the `quotePanel` fragment; `static/js/app.js` for client-only failures.
+8. `VM/web/CorrelationIdFilter.java` → `VM/security/ApiKeyFilter.java` → `VM/chaos/ChaosFilter.java` → `VM/api/CommissionQuoteController.java` (+ `VM/idempotency/IdempotencyStore.java`) → `VM/pricing/CommissionCalculator.java`. Errors: `VM/api/ProblemDetailsAdvice.java` and, for the filters, `VM/web/ProblemResponseWriter.java`.
+9. Tests mirror each of the above, in the same packages under `src/test/java`.
 
 ---
 
@@ -551,4 +552,15 @@ Returning 200 with an error fragment is easy but lies to proxies, logs and monit
 
 | Date | Change | Reason | Docs updated |
 |---|---|---|---|
-| — | — | — | — |
+| 2026-10-21 | Pinned Spring Boot **4.1.1** (Framework 7.0.9, Jackson 3.1), htmx **2.0.11**, WireMock **3.13.2** (standalone) | Latest stable on Maven Central at build time. htmx 4.0.0 has since reached a stable release, but the build prompt specifies 2.0 and the app needs nothing from 4. WireMock standalone works with Boot 4, so no fallback to MockWebServer was needed | Header table, README |
+| 2026-10-21 | Forcing a chaos mode needs **both** rates, e.g. `MOCK_CHAOS_FAILURE_RATE=1 MOCK_CHAOS_SLOW_RATE=0` | The startup check `failure-rate + slow-rate ≤ 1` (§12) rejects `MOCK_CHAOS_FAILURE_RATE=1` alone (1 + 0.05 default). The check was kept; the demo commands were wrong. §8's arithmetic assumed slow applied only to non-failures; as built the two are disjoint bands of one roll (0.25 per attempt, not 0.24) | §8, README, PLAN smoke test |
+| 2026-10-21 | Extra Jackson strictness in the mock: `mapper.allow-coercion-of-scalars=false`, `datatype.enum.fail-on-numbers-for-enums=true` | Without them `"12"` is accepted as a number and `"riskBand": 0` as `LOW` | — |
+| 2026-10-21 | `MALFORMED_REQUEST` responses include `errors[{field, message}]` when Jackson knows the field | Tells the caller which field had the wrong type (e.g. `loanTermInMonths` for `12.5`). The contract's `errors` member is optional, so this stays within it | — |
+| 2026-10-21 | The mock's `ApiKeyFilter` is default-deny: every path except `/actuator/health` needs the key, not just `/v1/**` | Secure by default; unknown paths can't be probed without a key | §9.2 unchanged (health is still open) |
+| 2026-10-21 | Problem Details omit `type` (implied `about:blank`) and include `instance` | Matches Spring's own `ProblemDetail` serialisation, so filter-written and advice-written errors have the same shape | — |
+| 2026-10-21 | Classes added beyond the planned layout: mock `web/ProblemResponseWriter`, `idempotency/IdempotencyProperties`, `idempotency/IdempotencyKeyReusedException`; app `web/QuoteResultView`, `web/WebConfig` (the `Clock` bean) | Filters can't use the MVC advice; config validation; display formatting kept out of the template; `Clock` injectable for tests | §14 |
+| 2026-10-21 | Failure messages live in `QuoteFailureHandler`, not `messages.properties`; parser messages live in `LoanDetailsParser` | ADR-006 wants status, message and retry policy as one table in one file; tests assert the exact text. `messages.properties` holds page copy only | AGENTS.md |
+| 2026-10-21 | A vendor status that is neither 2xx, 4xx nor 500/502/503/504 (e.g. 501, 3xx) → `VendorBadResponse` (502, not retried) | §7.2 didn't cover it; it isn't a transient failure we should retry | — |
+| 2026-10-21 | The idempotency key posted by the browser is accepted only if it is a UUID; otherwise a new one is generated | The hidden field is user-controllable; never forward arbitrary values to the vendor | — |
+| 2026-10-21 | `vendor/HttpCommissionQuoteGateway` reads the correlation id via `web/CorrelationIdFilter.current()` | One owner for the MDC key; a small outward dependency from the adapter, accepted rather than adding a shared class | — |
+| 2026-10-21 | Added `.gitattributes` (LF in the repository, CRLF for `*.cmd`) and marked `mvnw` executable | Without it, `./mvnw` checked out on Windows breaks on Linux CI | — |

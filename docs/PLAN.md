@@ -8,10 +8,10 @@
 
 ## Definition of done
 
-- [ ] Every brief requirement (R1–R12) and the nice-to-have (N1) has evidence in the README traceability table.
+- [x] Every brief requirement (R1–R12) and the nice-to-have (N1) has evidence in the README traceability table.
 - [ ] `./mvnw clean verify` is green locally and in CI.
 - [ ] The manual smoke test at the end of this file passes, step by step.
-- [ ] Docs match the code: ports, env var names, commands, class names.
+- [x] Docs match the code: ports, env var names, commands, class names.
 - [ ] Rahul has reviewed every file; nothing ships unread.
 
 ---
@@ -36,11 +36,11 @@ AI generation is fast; **review is the real cost**. Each budget includes reading
 ## Phase 0 — Scaffold and contract (20m)
 
 **Tasks**
-- [ ] Parent `pom.xml`: Java 21, Spring Boot 4.x parent (latest stable patch, checked on Maven Central), modules `vendor-mock` and `quote-app`, Maven Wrapper.
-- [ ] Two minimal Boot apps on 8081 and 8080, each with `/actuator/health` only.
-- [ ] `local` profile in each module with the fake key `local-dev-key-not-a-secret`; other profiles require a real key.
-- [ ] `.gitignore`, `.editorconfig`, `.env.example`, `contracts/commission-quote-api.yaml` in place.
-- [ ] `.github/workflows/ci.yml`: Temurin 21, Maven cache, `./mvnw -B verify`.
+- [x] Parent `pom.xml`: Java 21, Spring Boot 4.x parent (latest stable patch, checked on Maven Central), modules `vendor-mock` and `quote-app`, Maven Wrapper.
+- [x] Two minimal Boot apps on 8081 and 8080, each with `/actuator/health` only.
+- [x] `local` profile in each module with the fake key `local-dev-key-not-a-secret`; other profiles require a real key.
+- [x] `.gitignore`, `.editorconfig`, `.env.example`, `contracts/commission-quote-api.yaml` in place.
+- [x] `.github/workflows/ci.yml`: Temurin 21, Maven cache, `./mvnw -B verify`.
 
 **Acceptance criteria**
 - `./mvnw verify` is green.
@@ -55,11 +55,11 @@ AI generation is fast; **review is the real cost**. Each budget includes reading
 ## Phase 1 — Vendor mock: pricing, contract, auth (40m)
 
 **Tasks**
-- [ ] `pricing/RiskBand`, `pricing/CommissionCalculator`, written test-first from the §6.2 table.
-- [ ] `api/QuoteRequest` and `api/QuoteResponse` records; strict Jackson settings: fail on unknown properties, no float-to-int, no string-to-number coercion, `BigDecimal` for floats.
-- [ ] `api/CommissionQuoteController` → `POST /v1/commission-quotes`.
-- [ ] `api/ProblemDetailsAdvice` — every error as Problem Details with `code` and `correlationId` (§7.1).
-- [ ] `web/CorrelationIdFilter`, `security/ApiKeyFilter` (+ `ApiKeyProperties`), registered in the §3.2 order.
+- [x] `pricing/RiskBand`, `pricing/CommissionCalculator`, written test-first from the §6.2 table.
+- [x] `api/QuoteRequest` and `api/QuoteResponse` records; strict Jackson settings: fail on unknown properties, no float-to-int, no string-to-number coercion, `BigDecimal` for floats.
+- [x] `api/CommissionQuoteController` → `POST /v1/commission-quotes`.
+- [x] `api/ProblemDetailsAdvice` — every error as Problem Details with `code` and `correlationId` (§7.1).
+- [x] `web/CorrelationIdFilter`, `security/ApiKeyFilter` (+ `ApiKeyProperties`), registered in the §3.2 order.
 
 **Tests:** `CommissionCalculatorTest`, `ApiKeyFilterTest`, `QuoteRequestValidationTest`.
 
@@ -79,15 +79,15 @@ AI generation is fast; **review is the real cost**. Each budget includes reading
 ## Phase 2 — Vendor mock: chaos and idempotency (25m)
 
 **Tasks**
-- [ ] `chaos/ChaosProperties` (validated), `chaos/ChaosFilter`, `chaos/Sleeper`; `RandomGenerator` and `Sleeper` as beans.
-- [ ] `X-Mock-Scenario: ok|error|slow` when `mock.chaos.scenario-header-enabled=true`.
-- [ ] `idempotency/IdempotencyStore`: request fingerprint uses normalised values (`500000` and `500000.00` are the same payload); TTL 10m; bounded size; `putIfAbsent` for concurrent duplicates.
-- [ ] `spring.threads.virtual.enabled=true`.
+- [x] `chaos/ChaosProperties` (validated), `chaos/ChaosFilter`, `chaos/Sleeper`; `RandomGenerator` and `Sleeper` as beans.
+- [x] `X-Mock-Scenario: ok|error|slow` when `mock.chaos.scenario-header-enabled=true`.
+- [x] `idempotency/IdempotencyStore`: request fingerprint uses normalised values (`500000` and `500000.00` are the same payload); TTL 10m; bounded size; `putIfAbsent` for concurrent duplicates.
+- [x] `spring.threads.virtual.enabled=true`.
 
 **Tests:** `ChaosFilterTest`, `IdempotencyTest`.
 
 **Acceptance criteria**
-- `MOCK_CHAOS_FAILURE_RATE=1` → every authenticated call returns 500 or 503.
+- `MOCK_CHAOS_FAILURE_RATE=1 MOCK_CHAOS_SLOW_RATE=0` → every authenticated call returns 500 or 503.
 - `X-Mock-Scenario: slow` → the response takes about `slow-delay`.
 - The same `Idempotency-Key` returns the same `quoteId` with `Idempotent-Replayed: true`; a different body with that key → 422.
 
@@ -100,10 +100,10 @@ AI generation is fast; **review is the real cost**. Each budget includes reading
 ## Phase 3 — Quote app: vendor gateway and resilience (45m)
 
 **Tasks**
-- [ ] `quote/` package: `LoanDetails`, `RiskBand`, `CommissionQuote`, `CommissionQuoteGateway` (port), `QuoteService`, sealed `QuoteFailure` with its five subtypes.
-- [ ] `vendor/VendorClientProperties`: `@Validated`, `@NotBlank` key, redacted `toString`.
-- [ ] `vendor/VendorClientConfig`: `RestClient` on the JDK HTTP client with connect and read timeouts.
-- [ ] `vendor/HttpCommissionQuoteGateway`: headers, `RetryTemplate` policy (§8), error classification (§7.2), response sanity checks (ADR-011), attempt logging without the key.
+- [x] `quote/` package: `LoanDetails`, `RiskBand`, `CommissionQuote`, `CommissionQuoteGateway` (port), `QuoteService`, sealed `QuoteFailure` with its five subtypes.
+- [x] `vendor/VendorClientProperties`: `@Validated`, `@NotBlank` key, redacted `toString`.
+- [x] `vendor/VendorClientConfig`: `RestClient` on the JDK HTTP client with connect and read timeouts.
+- [x] `vendor/HttpCommissionQuoteGateway`: headers, `RetryTemplate` policy (§8), error classification (§7.2), response sanity checks (ADR-011), attempt logging without the key.
 
 **Tests:** `HttpCommissionQuoteGatewayTest` (WireMock), `QuoteAppApplicationTest`.
 
@@ -124,11 +124,11 @@ AI generation is fast; **review is the real cost**. Each budget includes reading
 ## Phase 4 — Quote app: web layer and UI (50m)
 
 **Tasks**
-- [ ] `web/QuoteForm` (raw strings + idempotency key) and `web/LoanDetailsParser` (§6.1, exact messages).
-- [ ] `web/QuoteController`: `GET /`, `POST /quotes`; fragment when `HX-Request` is present, full page otherwise; idempotency key lifecycle (§10.3).
-- [ ] `web/QuoteFailureHandler`: exhaustive `switch` → status, message, retry flag, reference.
-- [ ] `templates/index.html` with the `quotePanel` fragment; `static/css/app.css`; `static/js/app.js`; htmx WebJar and `htmx-config` meta tag (§10.2).
-- [ ] `web/CorrelationIdFilter`, `web/SecurityHeadersFilter`; injected `Clock` for "Generated at".
+- [x] `web/QuoteForm` (raw strings + idempotency key) and `web/LoanDetailsParser` (§6.1, exact messages).
+- [x] `web/QuoteController`: `GET /`, `POST /quotes`; fragment when `HX-Request` is present, full page otherwise; idempotency key lifecycle (§10.3).
+- [x] `web/QuoteFailureHandler`: exhaustive `switch` → status, message, retry flag, reference.
+- [x] `templates/index.html` with the `quotePanel` fragment; `static/css/app.css`; `static/js/app.js`; htmx WebJar and `htmx-config` meta tag (§10.2).
+- [x] `web/CorrelationIdFilter`, `web/SecurityHeadersFilter`; injected `Clock` for "Generated at".
 
 **Tests:** `LoanDetailsParserTest`, `QuoteControllerTest`.
 
@@ -150,11 +150,11 @@ AI generation is fast; **review is the real cost**. Each budget includes reading
 ## Phase 5 — Hardening and documentation (35m)
 
 **Tasks**
-- [ ] README: run **every** command as written; fill in the traceability table; leave the `<!-- Rahul: … -->` comments in "How I used AI" for Rahul.
-- [ ] ARCHITECTURE: correct the §14 code tour to the real paths; add Decision log rows for any deviation; check the diagrams still match.
-- [ ] `AGENTS.md` (≤60 lines) and `CLAUDE.md` (`@AGENTS.md`) for AI assistants working in the repo.
-- [ ] `.env.example` complete and commented.
-- [ ] Run the definition-of-done checklist in BUILD_PROMPT §11 and report results.
+- [x] README: run **every** command as written; fill in the traceability table; leave the `<!-- Rahul: … -->` comments in "How I used AI" for Rahul.
+- [x] ARCHITECTURE: correct the §14 code tour to the real paths; add Decision log rows for any deviation; check the diagrams still match.
+- [x] `AGENTS.md` (≤60 lines) and `CLAUDE.md` (`@AGENTS.md`) for AI assistants working in the repo.
+- [x] `.env.example` complete and commented.
+- [x] Run the definition-of-done checklist in BUILD_PROMPT §11 and report results.
 
 **Acceptance criteria:** a reviewer can clone, run, test and understand the project from the README alone.
 
@@ -189,7 +189,7 @@ AI generation is fast; **review is the real cost**. Each budget includes reading
 **Never cut:** input parsing tests, gateway tests, the failure taxonomy, or the README run instructions.
 
 ### Cut list — outcome
-_Filled in at Phase 5: what was cut and why._
+Nothing was cut: every item in Phases 0–5 was built, including the CSP filter, the no-JavaScript fallback, the idempotency replay store and latency jitter. Stretch items S1–S4 were not started. Deviations from the design are in ARCHITECTURE §17.
 
 ---
 
@@ -200,8 +200,8 @@ _Filled in at Phase 5: what was cut and why._
 3. **Validation:** amount `12abc`, term `12.5`, no band → three inline errors; focus on the amount field; values kept.
 4. **Friendly input + rounding:** `$1,090` · `12` · Low → **$7.09** (HALF_UP: 7.085 rounds up).
 5. **Cap:** `5,000,000` · `300` · Low → **$25,000.00**.
-6. **Vendor errors:** restart the mock with `MOCK_CHAOS_FAILURE_RATE=1` → retryable error with a reference. Check both services' logs: same correlation id, two attempts.
-7. **Vendor slow:** `MOCK_CHAOS_SLOW_RATE=1` → timeout message after about 4 seconds.
+6. **Vendor errors:** restart the mock with `MOCK_CHAOS_FAILURE_RATE=1 MOCK_CHAOS_SLOW_RATE=0` → retryable error with a reference. Check both services' logs: same correlation id, two attempts.
+7. **Vendor slow:** `MOCK_CHAOS_SLOW_RATE=1 MOCK_CHAOS_FAILURE_RATE=0` → timeout message after about 4 seconds.
 8. **Vendor down:** stop the mock → "temporarily unavailable".
 9. **API directly:** `curl` without `api-key` → 401; with it → 200; repeat with the same `Idempotency-Key` → same `quoteId`.
 10. **Accessibility:** keyboard-only pass at a 320px-wide viewport.

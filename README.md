@@ -8,8 +8,6 @@ A staff-facing web app that captures loan details and shows a commission quote f
 - **Money is `BigDecimal`** with explicit rounding, backed by a table of worked examples.
 - **Accessible and responsive:** labelled inputs, managed focus, `role="alert"` errors, works at 320px and without JavaScript.
 
-<!-- Phase 5: run every command in this file exactly as written, complete the tables, then delete this comment. -->
-
 ---
 
 ## Contents
@@ -30,7 +28,7 @@ A staff-facing web app that captures loan details and shows a commission quote f
 
 ## Quick start
 
-**Prerequisites:** JDK 21 (for example [Eclipse Temurin](https://adoptium.net/)). Nothing else — the Maven Wrapper downloads Maven. On Windows, use `mvnw.cmd` instead of `./mvnw`.
+**Prerequisites:** JDK 21 (for example [Eclipse Temurin](https://adoptium.net/)). Nothing else — the Maven Wrapper downloads Maven. On Windows, use `mvnw.cmd` instead of `./mvnw`; in PowerShell, quote the `-D` argument (`"-Dspring-boot.run.profiles=local"`), or PowerShell splits it at the dot.
 
 ```bash
 # 1. Start the vendor mock on http://localhost:8081
@@ -62,20 +60,27 @@ The tests are deterministic: randomness, sleeping and the clock are injected, so
 
 ## Trying the failure paths
 
-The mock fails about 20% of the time and is slow about 5% of the time, by default. The app retries once, so you'll see an error about 1 time in 17. To force each path:
+By default each call to the mock fails (500/503) with probability 0.2 and is slower than the app's timeout with probability 0.05, so an attempt goes wrong about 25% of the time. The app retries once, so you'll see an error about 1 time in 16 (0.25²). To force each path:
 
 | To see… | Do this |
 |---|---|
 | Inline validation errors | Enter `12abc` as the amount, `12.5` as the term, and leave the risk band empty |
-| A retryable vendor error | Restart the mock with `MOCK_CHAOS_FAILURE_RATE=1` |
-| A timeout | Restart the mock with `MOCK_CHAOS_SLOW_RATE=1` (the error appears after about 4 seconds) |
+| A retryable vendor error | Restart the mock with `MOCK_CHAOS_FAILURE_RATE=1 MOCK_CHAOS_SLOW_RATE=0` |
+| A timeout | Restart the mock with `MOCK_CHAOS_SLOW_RATE=1 MOCK_CHAOS_FAILURE_RATE=0` (the error appears after about 4 seconds) |
 | Vendor unavailable | Stop the mock |
 | No randomness at all | Restart the mock with `MOCK_CHAOS_ENABLED=false` |
 | Raw vendor behaviour, no retry | Restart the app with `VENDOR_MAX_RETRIES=0` |
 
+Set **both** rates when forcing one of them: the mock checks at startup that `failure-rate + slow-rate ≤ 1` and refuses to start otherwise (`MOCK_CHAOS_FAILURE_RATE=1` alone adds up to 1.05 with the default slow rate).
+
 ```bash
-# Example: a vendor that always fails
-MOCK_CHAOS_FAILURE_RATE=1 ./mvnw -pl vendor-mock spring-boot:run -Dspring-boot.run.profiles=local
+# Example: a vendor that always fails (bash)
+MOCK_CHAOS_FAILURE_RATE=1 MOCK_CHAOS_SLOW_RATE=0 ./mvnw -pl vendor-mock spring-boot:run -Dspring-boot.run.profiles=local
+```
+
+```powershell
+# The same in PowerShell
+$env:MOCK_CHAOS_FAILURE_RATE='1'; $env:MOCK_CHAOS_SLOW_RATE='0'; .\mvnw.cmd -pl vendor-mock spring-boot:run "-Dspring-boot.run.profiles=local"
 ```
 
 Every error shows a **Reference**: the correlation id, which appears on the matching log lines in both services.
@@ -113,8 +118,9 @@ Every variable is listed, with safe placeholders, in [`.env.example`](.env.examp
 | quote-app | `VENDOR_MAX_RETRIES` | `1` | Retries after the first attempt |
 | vendor-mock | `MOCK_API_KEYS` | **required** (`local` profile provides one) | Accepted keys, comma-separated (supports rotation) |
 | vendor-mock | `MOCK_CHAOS_ENABLED` | `true` | Turn random failures on or off |
-| vendor-mock | `MOCK_CHAOS_FAILURE_RATE` | `0.2` | Probability of a 500/503 |
+| vendor-mock | `MOCK_CHAOS_FAILURE_RATE` | `0.2` | Probability of a 500/503 (failure + slow must be ≤ 1) |
 | vendor-mock | `MOCK_CHAOS_SLOW_RATE` | `0.05` | Probability of a response slower than the app's timeout |
+| vendor-mock | `MOCK_CHAOS_SCENARIO_HEADER` | `true` | Honour `X-Mock-Scenario: ok\|error\|slow` to force one call's outcome |
 
 ---
 
@@ -164,23 +170,21 @@ commission-quote-app/
 
 ## How this meets the brief
 
-<!-- Phase 5: replace the planned names below with the real file and test names, then delete this comment. -->
-
 | ID | Requirement | Where | Evidence |
 |---|---|---|---|
-| R1 | Form for `loanAmount`, `loanTermInMonths`, `riskBand` | `templates/index.html`, `QuoteForm` | `QuoteControllerTest` |
-| R2 | "Generate Quote" button | `templates/index.html` | `QuoteControllerTest` |
-| R3 | Display the quote on success | `quotePanel` fragment | `QuoteControllerTest` |
-| R4 | Loading states and error messages | htmx indicator, `QuoteFailureHandler`, `app.js` | `QuoteControllerTest`, manual smoke test |
-| R5 | Mock API honouring the contract | `vendor-mock`, `contracts/…yaml` | `QuoteRequestValidationTest`, `CommissionCalculatorTest` |
-| R6 | `api-key` required; invalid keys rejected | `ApiKeyFilter`, `HttpCommissionQuoteGateway` | `ApiKeyFilterTest`, `HttpCommissionQuoteGatewayTest` |
-| R7 | Random errors | `ChaosFilter` | `ChaosFilterTest` |
-| R8 | Core tests | both modules | `./mvnw verify` |
-| R9 | Invalid numbers; timeouts and errors | `LoanDetailsParser`, gateway retry/timeouts | `LoanDetailsParserTest`, `HttpCommissionQuoteGatewayTest` |
-| R10 | Readable structure | package-by-feature, ports and adapters | ARCHITECTURE §3 |
-| R11 | Run and test instructions | this README | — |
+| R1 | Form for `loanAmount`, `loanTermInMonths`, `riskBand` | `quote-app/…/templates/index.html` (`quotePanel`), `web/QuoteForm` | `QuoteControllerTest.rendersForm` |
+| R2 | "Generate Quote" button | `templates/index.html`, `messages.properties` (`form.submit`) | `QuoteControllerTest.rendersForm` |
+| R3 | Display the quote on success | `web/QuoteController`, `web/QuoteResultView`, `quotePanel` result section | `QuoteControllerTest.successRendersQuote` ($3,000.00, 0.60%, quote ID, Sydney time) |
+| R4 | Loading states and error messages | `hx-indicator` + `hx-disabled-elt` + `app.css` (`.htmx-request`); `web/QuoteFailureHandler`; `static/js/app.js` | `QuoteControllerTest.failureRendersAlert` (6 cases), `invalidInputRendersFieldErrors`; browser check of loading, 503 swap and network-error states |
+| R5 | Mock API honouring the contract | `vendor-mock/…/api/CommissionQuoteController`, `QuoteRequest`, `QuoteResponse`, `ProblemDetailsAdvice`; `contracts/commission-quote-api.yaml` | `QuoteRequestValidationTest` (23 cases), `CommissionCalculatorTest` (§6.2 table), `IdempotencyTest` |
+| R6 | `api-key` required; invalid keys rejected | `vendor-mock/…/security/ApiKeyFilter`; sent by `quote-app/…/vendor/HttpCommissionQuoteGateway` | `ApiKeyFilterTest` (identical 401s, rotation), `ChaosAfterAuthTest`, `HttpCommissionQuoteGatewayTest.sendsEveryRequiredHeader` |
+| R7 | Random errors | `vendor-mock/…/chaos/ChaosFilter` (injected `RandomGenerator`, `Sleeper`) | `ChaosFilterTest`, `ChaosAfterAuthTest` |
+| R8 | Core tests | 179 tests across both modules | `./mvnw verify` (green, about 30 seconds) |
+| R9 | Invalid numbers; timeouts and errors | `web/LoanDetailsParser`; gateway timeouts, `RetryTemplate`, sealed `quote/QuoteFailure` | `LoanDetailsParserTest` (65 cases), `HttpCommissionQuoteGatewayTest` (26 cases incl. real timeouts and connection refused) |
+| R10 | Readable structure | package-by-feature; `quote` (domain) ← `web`, `vendor` (adapters); no shared code between modules | [ARCHITECTURE §3](docs/ARCHITECTURE.md#3-building-blocks), [§14](docs/ARCHITECTURE.md#14-code-tour) |
+| R11 | Run and test instructions | this README | Every command above was run as written during Phase 5 |
 | R12 | AI usage section | [below](#how-i-used-ai) | — |
-| N1 | Clean, accessible, responsive UI | `app.css`, ARCHITECTURE §10.4 | smoke test step 10 |
+| N1 | Clean, accessible, responsive UI | `static/css/app.css`, `templates/index.html` (labels, `aria-describedby`, `aria-invalid`, `role="alert"`, managed focus) | `QuoteControllerTest` (focus and ARIA attributes); browser check: focus moves, no CSP errors, no overflow at 320px |
 
 ---
 
@@ -211,8 +215,8 @@ The brief fixes the field names and the `api-key` header. Everything else below 
 
 - **Planning — Claude (claude.ai).** I chose the stack: Java 21 + Spring Boot because it's my strongest, and server-rendered htmx so the UI stays in Java and templates. Claude reviewed the brief with me and drafted `docs/ARCHITECTURE.md`, `docs/PLAN.md`, the OpenAPI contract and the build prompt ([`docs/ai/BUILD_PROMPT.md`](docs/ai/BUILD_PROMPT.md), committed for transparency).
   <!-- Rahul: what you changed in those drafts before building. -->
-- **Implementation — Claude Code.** It generated the code, tests and configuration phase by phase from the build prompt. I reviewed each phase at a gate before letting it continue.
-  <!-- Rahul: what you rejected, rewrote or simplified, and why. -->
+- **Implementation — Claude Code.** It generated the code, tests and configuration phase by phase from the build prompt, committing once per phase. It ran the build after every phase, ran each README command as written, and smoke-tested the UI in a browser (htmx swaps, focus, CSP, failure paths). In this run it went straight through all phases without stopping at the review gates; deviations from the design are logged in [ARCHITECTURE §17](docs/ARCHITECTURE.md#17-decision-log-changes-during-the-build).
+  <!-- Rahul: what you reviewed afterwards, and what you rejected, rewrote or simplified, and why. -->
 - **Verification — me.**
   <!-- Rahul: what you checked yourself (e.g. read every file, re-derived the worked commission examples, ran the smoke test, keyboard-only pass). -->
 - **Ownership.** I can explain every file. Where the build departed from the plan, the reason is in the Decision log at the end of `docs/ARCHITECTURE.md`.
