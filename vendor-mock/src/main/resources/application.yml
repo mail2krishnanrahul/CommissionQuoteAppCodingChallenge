@@ -1,0 +1,49 @@
+# Every documented env var is mapped explicitly (ARCHITECTURE §12): relaxed binding would otherwise
+# expect names like MOCK_CHAOS_FAILURERATE.
+server:
+  port: ${SERVER_PORT:8081}
+
+spring:
+  application:
+    name: vendor-mock
+  threads:
+    virtual:
+      # Simulated latency parks a virtual thread instead of tying up a platform thread.
+      enabled: true
+  # Strict on what we receive (ADR-011). Jackson's defaults would silently truncate 12.5 to 12,
+  # turn "12" into 12, and accept 0 as the first riskBand.
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+      accept-float-as-int: false
+      use-big-decimal-for-floats: true
+    mapper:
+      allow-coercion-of-scalars: false
+    datatype:
+      enum:
+        fail-on-numbers-for-enums: true
+
+mock:
+  # Comma-separated so a key can be rotated with an overlap window. No default outside the `local` profile.
+  api-keys: ${MOCK_API_KEYS:}
+  chaos:
+    enabled: ${MOCK_CHAOS_ENABLED:true}
+    failure-rate: ${MOCK_CHAOS_FAILURE_RATE:0.2}
+    slow-rate: ${MOCK_CHAOS_SLOW_RATE:0.05}
+    slow-delay: ${MOCK_CHAOS_SLOW_DELAY:5s}
+    latency-min: 50ms
+    latency-max: 400ms
+    scenario-header-enabled: ${MOCK_CHAOS_SCENARIO_HEADER:true}
+  idempotency:
+    ttl: 10m
+    max-entries: 10000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+logging:
+  pattern:
+    level: "%5p [corr=%X{correlationId:-}]"

@@ -1,0 +1,5 @@
+# LF in the repository so ./mvnw runs on Linux CI; Windows scripts keep CRLF.
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.jar binary
+*.pdf binary

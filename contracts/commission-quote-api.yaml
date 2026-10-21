@@ -1,0 +1,282 @@
+openapi: 3.1.0
+info:
+  title: Commission Quote API
+  version: 1.0.0
+  summary: Vendor API that calculates a commission quote for a loan application.
+  description: |
+    The agreed contract for the external vendor's Commission Quote API.
+    `vendor-mock/` implements it so the Quote App can be built and tested before
+    the real vendor API exists.
+
+    **Fixed by the agreed contract:** request fields `loanAmount`, `loanTermInMonths`,
+    `riskBand`; response fields `quoteId`, `commissionRate`, `totalCommission`;
+    authentication with an `api-key` header.
+
+    **Our assumptions (to confirm with the vendor)** are marked `ASSUMPTION` below and
+    listed in docs/ARCHITECTURE.md §5. The `Idempotency-Key` and `X-Correlation-Id`
+    headers are optional extensions we would propose to the vendor. The Quote App still
+    works if the vendor ignores them; it only loses duplicate protection and cross-system
+    tracing.
+
+servers:
+  - url: http://localhost:8081
+    description: Local mock (vendor-mock module)
+
+security:
+  - apiKey: []
+
+paths:
+  /v1/commission-quotes:
+    post:
+      operationId: createCommissionQuote
+      summary: Calculate a commission quote for a loan
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+        - $ref: '#/components/parameters/MockScenario'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteRequest'
+            examples:
+              medium30Years:
+                summary: $500,000 over 30 years, MEDIUM risk
+                value:
+                  loanAmount: 500000.00
+                  loanTermInMonths: 360
+                  riskBand: MEDIUM
+      responses:
+        '200':
+          description: >
+            Quote calculated. ASSUMPTION: 200 rather than 201, because the quote is a
+            computed result with no resource we can later GET.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+            Idempotent-Replayed:
+              description: Present with value `true` when this is a stored replay for a repeated Idempotency-Key.
+              schema:
+                type: string
+                enum: ['true']
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuoteResponse'
+              examples:
+                medium30Years:
+                  value:
+                    quoteId: 3f6c2a9e-8d1b-4c7e-9a52-0b6f1d2e4a77
+                    commissionRate: 0.0060
+                    totalCommission: 3000.00
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/IdempotencyKeyReused'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: api-key
+      description: >
+        Static shared secret per environment (ASSUMPTION). Missing, blank or wrong keys
+        all receive the same 401 response.
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: >
+        Optional extension. A client-generated UUID. Repeating a request with the same key
+        and the same body returns the stored response (same quoteId) instead of creating a
+        new quote. The same key with a different body is rejected with 422.
+      schema:
+        type: string
+        format: uuid
+    CorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      description: Optional extension. Propagated into logs and echoed on the response; generated if absent.
+      schema:
+        type: string
+        maxLength: 64
+        pattern: '^[A-Za-z0-9-]{1,64}$'
+    MockScenario:
+      name: X-Mock-Scenario
+      in: header
+      required: false
+      description: >
+        Mock only, and never sent by the Quote App. Forces an outcome for demos and tests
+        when `mock.chaos.scenario-header-enabled=true`. Not part of the vendor contract.
+      schema:
+        type: string
+        enum: [ok, error, slow]
+
+  headers:
+    CorrelationId:
+      description: The correlation id used for this request.
+      schema:
+        type: string
+
+  schemas:
+    RiskBand:
+      type: string
+      description: ASSUMPTION — the contract names the field but not its values. Case-sensitive.
+      enum: [LOW, MEDIUM, HIGH]
+
+    QuoteRequest:
+      type: object
+      additionalProperties: false
+      required: [loanAmount, loanTermInMonths, riskBand]
+      properties:
+        loanAmount:
+          type: number
+          description: Loan amount in AUD dollars, at most 2 decimal places. ASSUMPTION on currency and bounds.
+          minimum: 1000.00
+          maximum: 5000000.00
+          multipleOf: 0.01
+          examples: [500000.00]
+        loanTermInMonths:
+          type: integer
+          description: Whole months. ASSUMPTION on bounds (1 to 30 years).
+          minimum: 12
+          maximum: 360
+          examples: [360]
+        riskBand:
+          $ref: '#/components/schemas/RiskBand'
+
+    QuoteResponse:
+      type: object
+      required: [quoteId, commissionRate, totalCommission]
+      properties:
+        quoteId:
+          type: string
+          format: uuid
+          description: Vendor-issued identifier for this quote.
+        commissionRate:
+          type: number
+          description: >
+            Decimal fraction at 4 decimal places, so 0.0060 means 0.60%.
+            ASSUMPTION: a fraction, not a percentage.
+          minimum: 0
+          maximum: 1
+          examples: [0.0060]
+        totalCommission:
+          type: number
+          description: Commission in AUD dollars, rounded to 2 decimal places.
+          minimum: 0
+          examples: [3000.00]
+
+    Problem:
+      type: object
+      description: RFC 9457 Problem Details with two extension members, `code` and `correlationId`.
+      required: [title, status, code]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+          default: about:blank
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        code:
+          type: string
+          enum:
+            - VALIDATION_FAILED
+            - MALFORMED_REQUEST
+            - UNAUTHORIZED
+            - UNSUPPORTED_MEDIA_TYPE
+            - IDEMPOTENCY_KEY_REUSED
+            - SIMULATED_INTERNAL_ERROR
+            - SIMULATED_UNAVAILABLE
+            - INTERNAL_ERROR
+        correlationId:
+          type: string
+        errors:
+          type: array
+          description: Present for VALIDATION_FAILED.
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+  responses:
+    BadRequest:
+      description: Validation failed or the body could not be parsed.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            validation:
+              value:
+                type: about:blank
+                title: Bad Request
+                status: 400
+                detail: Request validation failed.
+                code: VALIDATION_FAILED
+                correlationId: 9b2d7f0c-3c1e-4c55-8d0e-2a7c1f6b9e10
+                errors:
+                  - field: loanTermInMonths
+                    message: must be a whole number between 12 and 360
+    Unauthorized:
+      description: The api-key header is missing, blank or not recognised.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            unauthorized:
+              value:
+                type: about:blank
+                title: Unauthorized
+                status: 401
+                detail: A valid api-key header is required.
+                code: UNAUTHORIZED
+                correlationId: 9b2d7f0c-3c1e-4c55-8d0e-2a7c1f6b9e10
+    UnsupportedMediaType:
+      description: Content-Type is not application/json.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    IdempotencyKeyReused:
+      description: The Idempotency-Key was already used with a different request body.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    ServerError:
+      description: Simulated (mock) or unexpected internal failure. Safe to retry with the same Idempotency-Key.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Unavailable:
+      description: Simulated temporary unavailability. Safe to retry with the same Idempotency-Key.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'

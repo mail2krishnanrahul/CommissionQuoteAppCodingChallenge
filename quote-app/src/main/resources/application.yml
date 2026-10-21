@@ -1,0 +1,29 @@
+# Every documented env var is mapped explicitly (ARCHITECTURE §12) rather than relying on relaxed binding.
+server:
+  port: ${SERVER_PORT:8080}
+  tomcat:
+    # The form has three short fields; anything bigger is not a real submission.
+    max-http-form-post-size: 10KB
+
+spring:
+  application:
+    name: quote-app
+
+vendor:
+  base-url: ${VENDOR_BASE_URL:http://localhost:8081}
+  # Required: the app refuses to start without it outside the `local` profile (ARCHITECTURE §9.1).
+  api-key: ${VENDOR_API_KEY:}
+  connect-timeout: ${VENDOR_CONNECT_TIMEOUT:1s}
+  read-timeout: ${VENDOR_READ_TIMEOUT:2s}
+  max-retries: ${VENDOR_MAX_RETRIES:1}
+  retry-initial-backoff: ${VENDOR_RETRY_BACKOFF:200ms}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+logging:
+  pattern:
+    level: "%5p [corr=%X{correlationId:-}]"

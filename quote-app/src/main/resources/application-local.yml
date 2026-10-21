@@ -1,0 +1,3 @@
+# Zero-config local run. This key is deliberately fake and identical in both modules; no other profile has a default.
+vendor:
+  api-key: ${VENDOR_API_KEY:local-dev-key-not-a-secret}
