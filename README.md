@@ -28,7 +28,23 @@ A staff-facing web app that captures loan details and shows a commission quote f
 
 ## Quick start
 
-**Prerequisites:** JDK 21 (for example [Eclipse Temurin](https://adoptium.net/)). Nothing else — the Maven Wrapper downloads Maven. On Windows, use `mvnw.cmd` instead of `./mvnw`; in PowerShell, quote the `-D` argument (`"-Dspring-boot.run.profiles=local"`), or PowerShell splits it at the dot.
+**Prerequisites:** JDK 21 (for example [Eclipse Temurin](https://adoptium.net/)). Nothing else — the Maven Wrapper downloads Maven.
+
+**One command to start both services, one to stop them:**
+
+| | macOS / Linux / Git Bash | Windows PowerShell |
+|---|---|---|
+| Start | `scripts/start.sh` | `.\scripts\start.ps1` |
+| Start after code changes (rebuild first) | `scripts/start.sh --build` | `.\scripts\start.ps1 -Build` |
+| Stop | `scripts/stop.sh` | `.\scripts\stop.ps1` |
+
+Then open **http://localhost:8080**. The vendor mock runs on http://localhost:8081.
+
+The start script builds the jars if they don't exist yet (tests skipped), starts the mock and then the app in the background with the `local` profile, waits until both report healthy, and prints where they run. Logs are in `.run/vendor-mock.log` and `.run/quote-app.log`. Running it again while the services are up does nothing harmful, and it refuses with a clear message if port 8080 or 8081 is taken by something else. The stop script stops only the processes the start script launched. Environment variables pass through, so `MOCK_CHAOS_FAILURE_RATE=1 MOCK_CHAOS_SLOW_RATE=0 scripts/start.sh` starts a vendor that always fails.
+
+If PowerShell refuses to run the scripts because of its execution policy, use `powershell -ExecutionPolicy Bypass -File scripts\start.ps1`.
+
+**Or run each service in the foreground with Maven** (two terminals; Ctrl+C to stop):
 
 ```bash
 # 1. Start the vendor mock on http://localhost:8081
@@ -39,6 +55,8 @@ A staff-facing web app that captures loan details and shows a commission quote f
 
 # 3. Open http://localhost:8080
 ```
+
+On Windows, use `mvnw.cmd` instead of `./mvnw`; in PowerShell, quote the `-D` argument (`"-Dspring-boot.run.profiles=local"`), or PowerShell splits it at the dot.
 
 The `local` profile gives both services the same obviously fake key (`local-dev-key-not-a-secret`), so there's nothing to configure. **Without the `local` profile, both services refuse to start until a key is provided** — see [Configuration](#configuration).
 
@@ -161,6 +179,7 @@ commission-quote-app/
 │       ├── vendor/       HTTP adapter: HttpCommissionQuoteGateway, client config and properties
 │       └── web/          controller, LoanDetailsParser, QuoteFailureHandler, filters
 │   └── src/main/resources/  templates/index.html, static/css/app.css, static/js/app.js
+├── scripts/              start.sh / stop.sh, start.ps1 / stop.ps1 — run both services in the background
 ├── docs/                 ARCHITECTURE.md, PLAN.md, ai/BUILD_PROMPT.md
 ├── AGENTS.md, CLAUDE.md  # Conventions and commands for AI assistants
 └── .github/workflows/ci.yml

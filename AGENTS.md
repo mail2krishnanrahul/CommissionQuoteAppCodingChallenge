@@ -12,12 +12,13 @@ A staff web app (`quote-app`, :8080) that shows a commission quote from a vendor
   `vendor/` `HttpCommissionQuoteGateway` (RestClient, RetryTemplate) · `web/` `QuoteController`, `LoanDetailsParser`,
   `QuoteFailureHandler`, filters · `resources/templates/index.html` (`quotePanel` fragment), `static/js/app.js`.
 
-## Commands (Windows: `mvnw.cmd`)
+## Commands (Windows: `mvnw.cmd`, `scripts\start.ps1`, `scripts\stop.ps1`)
 ```bash
 ./mvnw verify                                                          # all tests, < 1 minute
 ./mvnw -pl quote-app test -Dtest=LoanDetailsParserTest                 # one class
-./mvnw -pl vendor-mock spring-boot:run -Dspring-boot.run.profiles=local
-./mvnw -pl quote-app spring-boot:run -Dspring-boot.run.profiles=local  # http://localhost:8080
+scripts/start.sh [--build]   # both services in the background (local profile); logs in .run/; scripts/stop.sh stops them
+./mvnw -pl vendor-mock spring-boot:run -Dspring-boot.run.profiles=local   # or one service in the foreground
+./mvnw -pl quote-app spring-boot:run -Dspring-boot.run.profiles=local     # http://localhost:8080
 ```
 
 ## Conventions

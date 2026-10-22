@@ -16,3 +16,6 @@ target/
 
 .DS_Store
 Thumbs.db
+
+# Logs and process ids from scripts/start.*
+.run/
