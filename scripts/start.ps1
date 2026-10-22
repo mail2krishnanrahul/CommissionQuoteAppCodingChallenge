@@ -36,6 +36,18 @@ function Test-Running([string]$name) {
     return [bool]($process -and $process.CommandLine -match [regex]::Escape("$name-"))
 }
 
+function Test-PortInUse([int]$port) {
+    # Try to connect rather than list sockets: closing sockets from a just-stopped service can still be listed.
+    $client = [System.Net.Sockets.TcpClient]::new()
+    try {
+        return $client.ConnectAsync('localhost', $port).Wait(500)
+    } catch {
+        return $false
+    } finally {
+        $client.Dispose()
+    }
+}
+
 New-Item -ItemType Directory -Force $runDir | Out-Null
 
 $missingJars = @($services | Where-Object { -not (Find-Jar $_.Name) })
@@ -56,7 +68,7 @@ foreach ($service in $services) {
         Write-Host "$name is already running (pid $(Get-Content (Join-Path $runDir "$name.pid")))."
         continue
     }
-    if (Get-NetTCPConnection -LocalPort $service.Port -State Listen -ErrorAction SilentlyContinue) {
+    if (Test-PortInUse $service.Port) {
         throw "Port $($service.Port) is already in use by another process, so $name can't start."
     }
     $jar = Find-Jar $name
