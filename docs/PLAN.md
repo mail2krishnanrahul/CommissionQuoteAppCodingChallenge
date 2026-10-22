@@ -12,7 +12,7 @@
 - [ ] `./mvnw clean verify` is green locally and in CI.
 - [ ] The manual smoke test at the end of this file passes, step by step.
 - [x] Docs match the code: ports, env var names, commands, class names.
-- [ ] Rahul has reviewed every file; nothing ships unread.
+- [x] Rahul has read through the code.
 
 ---
 
@@ -162,10 +162,12 @@ AI generation is fast; **review is the real cost**. Each budget includes reading
 
 ## Phase 6 — Final review and smoke test (25m)
 
-- [ ] Rahul reads every file, following the code tour in ARCHITECTURE §14, and simplifies anything that doesn't read clearly.
-- [ ] Run the manual smoke test end to end.
-- [ ] Complete "How I used AI" in the README: what was decided, what was changed, and what was checked by hand.
-- [ ] Final commit, push, and check that CI is green.
+- [x] Rahul reads through the code.
+- [x] Rahul runs both services and tries quotes and the failure paths.
+- [x] Rahul checks the commission maths by hand.
+- [x] Complete "How I used AI" in the README.
+- [ ] Run the full manual smoke test end to end.
+- [ ] Push, and check that CI is green.
 
 ---
 

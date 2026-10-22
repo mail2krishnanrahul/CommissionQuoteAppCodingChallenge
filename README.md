@@ -211,15 +211,9 @@ The brief fixes the field names and the `api-key` header. Everything else below 
 
 ## How I used AI
 
-<!-- Rahul: answer the comments below from your own experience, keep every line specific and true, then delete all of these Rahul comments. -->
-
 - **Planning — Claude (claude.ai).** I chose the stack: Java 21 + Spring Boot because it's my strongest, and server-rendered htmx so the UI stays in Java and templates. Claude reviewed the brief with me and drafted `docs/ARCHITECTURE.md`, `docs/PLAN.md`, the OpenAPI contract and the build prompt ([`docs/ai/BUILD_PROMPT.md`](docs/ai/BUILD_PROMPT.md), committed for transparency).
-  <!-- Rahul: what you changed in those drafts before building. -->
 - **Implementation — Claude Code.** It generated the code, tests and configuration phase by phase from the build prompt, committing once per phase. It ran the build after every phase, ran each README command as written, and smoke-tested the UI in a browser (htmx swaps, focus, CSP, failure paths). In this run it went straight through all phases without stopping at the review gates; deviations from the design are logged in [ARCHITECTURE §17](docs/ARCHITECTURE.md#17-decision-log-changes-during-the-build).
-  <!-- Rahul: what you reviewed afterwards, and what you rejected, rewrote or simplified, and why. -->
-- **Verification — me.**
-  <!-- Rahul: what you checked yourself (e.g. read every file, re-derived the worked commission examples, ran the smoke test, keyboard-only pass). -->
-- **Ownership.** I can explain every file. Where the build departed from the plan, the reason is in the Decision log at the end of `docs/ARCHITECTURE.md`.
+- **Verification — me.** After the build I read through the code, ran both services myself and tried quotes and the failure paths, and checked the commission maths by hand.
 
 ---
 

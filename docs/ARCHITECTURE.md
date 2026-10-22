@@ -504,6 +504,19 @@ When the real vendor is ready:
 7. Add Micrometer metrics (vendor latency histogram, failures by type, retry count) with alerts.
 8. Keep `vendor-mock` as a test double for CI and local development, or delete it.
 
+### Extension points — where common changes land
+
+| Change | Touch points |
+|---|---|
+| Add an input field (e.g. `loanPurpose`, `brokerId`) | Contract → mock `QuoteRequest` + validation (+ calculator if it affects price) → app `QuoteForm`, `LoanDetailsParser`, `LoanDetails`, `VendorQuoteRequest` → template → parser and controller tests. The same path is in `AGENTS.md` |
+| New risk band or new rates | Mock `RiskBand` + `CommissionCalculator` table; app `RiskBand` + label; test tables |
+| Quote expiry (`validUntil`) | Contract → mock `QuoteResponse` → app `VendorQuoteResponse` (tolerant reader: an older app ignores it) → `CommissionQuote` → `QuoteResultView` and the result card |
+| Quote history | `QuoteService` + an in-memory bounded repository behind an interface; new fragment. Later a database |
+| Vendor returns 429 with `Retry-After` | Retry classification in `HttpCommissionQuoteGateway`, honouring the header within the budget; a new chaos mode; gateway test |
+| Audit trail | `QuoteService` publishes a `QuoteGenerated` event; a listener logs or persists who, when, inputs and quoteId |
+| Asynchronous vendor (202 + poll) | Gateway returns a pending handle; a status fragment polled with `hx-trigger="every 2s"` |
+| Compare two vendors | A second `CommissionQuoteGateway` implementation; `QuoteService` fans out on virtual threads with a shared deadline |
+
 ---
 
 ## 16. Architecture decision records
